@@ -2,13 +2,13 @@
 $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |gem|
-  gem.name          = "fluent-plugin-splunkapi"
-  gem.version       = "0.2.0"
-  gem.authors       = ["Keisuke Nishida"]
-  gem.email         = ["keisuke.nishida@gmail.com"]
-  gem.summary       = %q{Splunk output plugin (REST API / Storm API) for Fluentd event collector}
-  gem.description   = %q{Splunk output plugin (REST API / Storm API) for Fluentd event collector}
-  gem.homepage      = "https://github.com/k24d/fluent-plugin-splunkapi"
+  gem.name          = "fluent-plugin-splunkrestapi"
+  gem.version       = "0.0.1"
+  gem.authors       = ["Youichi Fujimoto"]
+  gem.email         = ["yofujimo@gmail.com"]
+  gem.summary       = %q{Splunk REST API output plugin for Fluentd event collector}
+  gem.description   = %q{Splunk REST API output plugin for Fluentd event collector}
+  gem.homepage      = "https://github.com/fpt"
   gem.license       = 'Apache License, Version 2.0'
 
   gem.files         = `git ls-files`.split($/)
@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
 
-  gem.rubyforge_project = "fluent-plugin-splunkapi"
+  gem.rubyforge_project = "fluent-plugin-splunkrestapi"
   gem.add_development_dependency "fluentd"
   gem.add_development_dependency "net-http-persistent"
   gem.add_runtime_dependency "fluentd"
