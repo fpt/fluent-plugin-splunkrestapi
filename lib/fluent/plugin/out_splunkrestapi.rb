@@ -21,6 +21,8 @@
 
 =end
 
+require 'httparty'
+
 module Fluent
 
 class SplunkRESTAPIOutput < Output
@@ -55,78 +57,68 @@ class SplunkRESTAPIOutput < Output
   config_param :host, :string, :default => nil # TODO: auto-detect
   config_param :sourcetype, :string, :default => 'fluent'
 
-  config_param :post_retry_max, :integer, :default => 3
-  config_param :post_retry_interval, :integer, :default => 3 
-
 
   def configure(conf)
     super
+    HTTParty::Basement.default_options.update(verify: false)
     @output_proc = OUTPUT_PROCS[@output_type]
     @username, @password = @auth.split(':')
   end
 
   def start
     super
-    @http = Net::HTTP::Persistent.new 'fluentd-plugin-splunkrestapi'
-    @http.verify_mode = OpenSSL::SSL::VERIFY_NONE # TODO
-    @http.headers['Content-Type'] = 'text/plain'
     $log.debug "initialized for splunkrestapi"
   end
 
   def shutdown
-    # NOTE: call super before @http.shutdown because super may flush final output
     super
-
-    @http.shutdown
     $log.debug "shutdown from splunkrestapi"
   end
 
   def emit(tag, es, chain)
     es.each {|time,record|
       emit_one(tag, time, record)
-      $log.write "#{Time.at(time).localtime} #{tag}: #{@output_proc.call(record)}\n"
+      # $log.write "#{Time.at(time).localtime} #{tag}: #{@output_proc.call(record)}\n"
     }
-    $log.flush
+    # $log.flush
 
     chain.next
   end
 
   def emit_one(tag, time, record)
-    uri = URI get_baseurl + "&source=#{tag}"
-    post = Net::HTTP::Post.new uri.request_uri
-    post.basic_auth @username, @password
-    post.body = @output_proc.call(record)
+    uri = make_uri()
+    body = @output_proc.call(record)
+    options = { :headers => { 'Content-Type' => 'text/plain' } }
+    basic_auth = {:username => @username, :password => @password}
+    post_data = { :body => body, :options => options, :basic_auth => basic_auth }
+
     $log.debug "POST #{uri}"
-    # retry up to :post_retry_max times
-    1.upto(@post_retry_max) do |c|
-      response = @http.request uri, post
-      $log.debug "=> #{response.code} (#{response.message})"
-      if response.code == "200"
-        # success
-        break
-      elsif response.code.match(/^40/)
-        # user error
-        $log.error "#{uri}: #{response.code} (#{response.message})\n#{response.body}"
-        break
-      elsif c < @post_retry_max
-        # retry
-        sleep @post_retry_interval
-        next
+    begin
+      resp = HTTParty.post(uri.request_uri, post_data)
+    rescue Net::OpenTimeout, Net::ReadTimeout => e
+      log.error "HTTParty post timeout #{e.inspect}"
+      return nil
+    end
+
+    $log.debug "=> #{resp.code}"
+    if response.code != "200"
+      if response.code.match(/^40/)
+        $log.error "#{uri}: #{resp.code}\n#{resp.body}"
       else
-        # other errors. fluentd will retry processing on exception
-        # FIXME: this may duplicate logs when using multiple buffers
-        raise "#{uri}: #{response.message}"
+        raise "#{uri}: #{resp.code}\n#{resp.body}"
       end
     end
   end
 
-  def get_baseurl
-    base_url = "https://#{@server}/services/receivers/simple?sourcetype=#{@sourcetype}"
-    base_url += "&host=#{@host}" if @host
-    base_url += "&check-index=false" # TODO
-    base_url
+  def make_uri(tag)
+    uri  = "https://#{@server}/services/receivers/simple"
+    uri += "?sourcetype=#{@sourcetype}"
+    uri += "&host=#{@host}" if @host
+    uri += "&check-index=false" # TODO
+    uri += "&source=#{tag}"
+    URI(uri)
   end
 
-end
+ end
 
 end
