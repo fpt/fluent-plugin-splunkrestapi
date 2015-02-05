@@ -22,6 +22,7 @@
 =end
 
 require 'httparty'
+require 'addressable/uri'
 
 module Fluent
 
@@ -34,7 +35,6 @@ class SplunkRESTAPIOutput < Output
   }
 
   def initialize
-    require 'net/http/persistent'
     super
   end
 
@@ -86,7 +86,7 @@ class SplunkRESTAPIOutput < Output
   end
 
   def emit_one(tag, time, record)
-    uri = make_uri()
+    uri = make_uri(tag)
     body = @output_proc.call(record)
     options = { :headers => { 'Content-Type' => 'text/plain' } }
     basic_auth = {:username => @username, :password => @password}
@@ -94,15 +94,15 @@ class SplunkRESTAPIOutput < Output
 
     $log.debug "POST #{uri}"
     begin
-      resp = HTTParty.post(uri.request_uri, post_data)
+      resp = HTTParty.post(uri.to_s, post_data)
     rescue Net::OpenTimeout, Net::ReadTimeout => e
       log.error "HTTParty post timeout #{e.inspect}"
       return nil
     end
 
     $log.debug "=> #{resp.code}"
-    if response.code != "200"
-      if response.code.match(/^40/)
+    if resp.code != 200
+      if resp.code >= 400
         $log.error "#{uri}: #{resp.code}\n#{resp.body}"
       else
         raise "#{uri}: #{resp.code}\n#{resp.body}"
@@ -116,7 +116,7 @@ class SplunkRESTAPIOutput < Output
     uri += "&host=#{@host}" if @host
     uri += "&check-index=false" # TODO
     uri += "&source=#{tag}"
-    URI(uri)
+    Addressable::URI::parse uri
   end
 
  end

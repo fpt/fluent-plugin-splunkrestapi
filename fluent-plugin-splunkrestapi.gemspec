@@ -18,7 +18,5 @@ Gem::Specification.new do |gem|
 
   gem.rubyforge_project = "fluent-plugin-splunkrestapi"
   gem.add_development_dependency "fluentd"
-  gem.add_development_dependency "net-http-persistent"
   gem.add_runtime_dependency "fluentd"
-  gem.add_runtime_dependency "net-http-persistent"
 end
